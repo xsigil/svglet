@@ -4,6 +4,7 @@
       "/usr/bin/g++",
       "-I/usr/include/2geom-1.3.0",
       "-I/usr/include/libxml2",
+      "-Isrc/include",
       "-c",
       "-o",
       "src/main.o",

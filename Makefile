@@ -1,12 +1,12 @@
 # コンパイラの設定
 CXX = g++
-CXXFLAGS = $(shell pkg-config --cflags 2geom) $(shell xml2-config --cflags)
+CXXFLAGS = $(shell pkg-config --cflags 2geom) $(shell xml2-config --cflags) -Isrc/include
 LDFLAGS = $(shell pkg-config --libs 2geom) $(shell xml2-config --libs)
 
 # ターゲットとソース
 TARGET = bin/svglet
 #SRCS = src/path_length.cpp src/svg_translate.cpp
-SRCS = src/main.cpp
+SRCS = $(wildcard src/*.cpp)
 
 # オブジェクトファイル
 OBJS = $(SRCS:.cpp=.o)

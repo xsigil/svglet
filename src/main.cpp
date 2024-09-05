@@ -1,8 +1,6 @@
 #include <CLI/CLI.hpp>
 #include <iostream>
-#include <libxml/parser.h>
-#include <libxml/tree.h>
-
+#include <svglet/svglet.h>
 // 指定されたIDの要素を再帰的に検索する関数
 xmlNodePtr find_element_by_id(xmlNodePtr node, const std::string& id) {
     for (xmlNodePtr cur = node; cur != nullptr; cur = cur->next) {
@@ -20,44 +18,6 @@ xmlNodePtr find_element_by_id(xmlNodePtr node, const std::string& id) {
     return nullptr;
 }
 
-// SVGオブジェクトに対してtranslate変換を行う関数
-xmlDocPtr translate_svg_object(xmlDocPtr doc, const std::string& object_id, double translate_x, double translate_y) {
-    if (doc == nullptr) {
-        std::cerr << "SVGファイルの読み込みに失敗しました。" << std::endl;
-        return nullptr;
-    }
-
-    // ルート要素の取得
-    xmlNodePtr root = xmlDocGetRootElement(doc);
-    if (root == nullptr) {
-        std::cerr << "ルート要素が見つかりません。" << std::endl;
-        xmlFreeDoc(doc);
-        return nullptr;
-    }
-
-    // 指定されたIDの要素を検索
-    xmlNodePtr element = find_element_by_id(root, object_id);
-    if (element == nullptr) {
-        std::cerr << "ID '" << object_id << "' の要素が見つかりません。" << std::endl;
-        xmlFreeDoc(doc);
-        return nullptr;
-    }
-
-    // 現在のtransform属性を取得
-    xmlChar* transform = xmlGetProp(element, (const xmlChar *)"transform");
-    std::string new_transform;
-    if (transform) {
-        new_transform = (const char *)transform;
-        xmlFree(transform);
-    }
-
-    // translate(x, y)を追加
-    new_transform += " translate(" + std::to_string(translate_x) + "," + std::to_string(translate_y) + ")";
-    xmlSetProp(element, (const xmlChar *)"transform", (const xmlChar *)new_transform.c_str());
-
-    return doc;
-}
-
 int main(int argc, char **argv) {
     CLI::App app{"svglet - A simple tool for applying SVG transformations"};
 
@@ -68,6 +28,13 @@ int main(int argc, char **argv) {
     translate->add_option("object_id", object_id, "")->required();
     translate->add_option("x", translate_x, "Translate x")->required();
     translate->add_option("y", translate_y, "Translate y")->required();
+
+    std::string center_object_id;
+    double angle;
+    auto rotate = app.add_subcommand("rotate","Rotate the object around the center of center_object or around the point x, y.");
+    rotate->add_option("object_id", object_id, "")->required();
+    rotate->add_option("--cid", center_object_id, "");
+    rotate->add_option("angle", angle, "")->required(); 
 
     // comand line option parsing
     CLI11_PARSE(app, argc, argv);
@@ -87,9 +54,15 @@ int main(int argc, char **argv) {
         // execute translate subcommand
         if (*translate) {
             doc = translate_svg_object(doc, object_id, translate_x, translate_y);
-            if (doc == nullptr) {
-                throw std::runtime_error("Failed to apply translation");
-            }
+                    }
+
+        if (*rotate) {
+            doc = rotate_svg_object(doc, object_id, center_object_id, angle);
+
+        }
+
+        if (doc == nullptr) {
+            throw std::runtime_error("Failed to apply translation");
         }
 
         // output processed svg

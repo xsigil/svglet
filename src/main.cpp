@@ -81,31 +81,34 @@ Geom::Affine parseTransform(const std::string &transformStr) {
 }
 
 Geom::Point get_center_of_rect(xmlNodePtr element, Geom::Affine transform){
-    xmlChar* xAttr = xmlGetProp(element,(const xmlChar*) "x");
-    xmlChar* yAttr = xmlGetProp(element,(const xmlChar*) "y");
-    xmlChar* widthAttr  = xmlGetProp(element,(const xmlChar*) "width");
-    xmlChar* heightAttr = xmlGetProp(element,(const xmlChar*) "height");
+    xmlChar* xAttr = xmlGetProp(element, (const xmlChar*) "x");
+    xmlChar* yAttr = xmlGetProp(element, (const xmlChar*) "y");
+    xmlChar* widthAttr  = xmlGetProp(element, (const xmlChar*) "width");
+    xmlChar* heightAttr = xmlGetProp(element, (const xmlChar*) "height");
+
+    if (xAttr == nullptr || yAttr == nullptr || widthAttr == nullptr || heightAttr == nullptr) {
+        std::cerr << "Error: Missing attributes in rect element." << std::endl;
+        throw std::runtime_error("Missing attributes in rect element.");
+    }
+
     double x = std::stod(reinterpret_cast<char *>(xAttr));
     double y = std::stod(reinterpret_cast<char *>(yAttr));
     double width = std::stod(reinterpret_cast<char *>(widthAttr));
     double height = std::stod(reinterpret_cast<char *>(heightAttr));
 
-    Geom::Rect rect(x,y,x+width, y+height); 
+    // 矩形の中心を計算
+    Geom::Point center = Geom::Point(x + width / 2.0, y + height / 2.0);
 
+    // アフィン変換を中心に適用
+    Geom::Point transformedCenter = center * transform;
 
-    Geom::Rect transformedRect = rect*transform;
-    // 矩形の4つのコーナーを取得
-    Geom::Point topLeft = transformedRect.corner(0);      // 左上
-    Geom::Point topRight = transformedRect.corner(1);     // 右上
-    Geom::Point bottomRight = transformedRect.corner(2);  // 右下
-    Geom::Point bottomLeft = transformedRect.corner(3);   // 左下
-    Geom::Point center = (topLeft + topRight + bottomRight + bottomLeft) / 4.0;
+    // メモリの解放
     xmlFree(xAttr);
     xmlFree(yAttr);
     xmlFree(widthAttr);
     xmlFree(heightAttr);
- 
-    return center;
+
+    return transformedCenter;
 }
 
 Geom::Point get_center_of_circle(xmlNodePtr element, Geom::Affine transform){

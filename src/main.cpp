@@ -234,7 +234,17 @@ int main(int argc, char **argv) {
                 current = current->parent;
             }
             Geom::Rect transformedRect = rect*transform;
-            std::cout << transformedRect << std::endl;
+        // 矩形の4つのコーナーを取得
+            Geom::Point topLeft = transformedRect.corner(0);      // 左上
+            Geom::Point topRight = transformedRect.corner(1);     // 右上
+            Geom::Point bottomRight = transformedRect.corner(2);  // 右下
+            Geom::Point bottomLeft = transformedRect.corner(3);   // 左下
+
+            // 中心を計算: 4つの頂点の平均を取る
+            Geom::Point center = (topLeft + topRight + bottomRight + bottomLeft) / 4.0;
+            std::cout << center << std::endl;
+
+            //std::cout << transformedRect << std::endl;
             xmlFree(xAttr);
             xmlFree(yAttr);
             xmlFree(widthAttr);
@@ -253,7 +263,7 @@ int main(int argc, char **argv) {
         }
 
         // output processed svg
-        xmlSaveFormatFileEnc("-", doc, "UTF-8", 1);
+        //xmlSaveFormatFileEnc("-", doc, "UTF-8", 1);
 
         // release memory
         xmlFreeDoc(doc);

@@ -16,7 +16,7 @@ all: $(TARGET)
 
 # ターゲットのビルドルール
 $(TARGET): $(OBJS)
-	$(CXX) -o $(TARGET) $(OBJS) $(LDFLAGS)
+	$(CXX) -g -o $(TARGET) $(OBJS) $(LDFLAGS)
 
 # .cppファイルを.oにコンパイルするルール
 %.o: %.cpp

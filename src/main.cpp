@@ -80,38 +80,36 @@ Geom::Affine parseTransform(const std::string &transformStr) {
     return transform;
 }
 
-Geom::Point get_center_of_rect(xmlNodePtr element, Geom::Affine transform){
+Geom::Point get_center_of_rect(xmlNodePtr element){
     xmlChar* xAttr = xmlGetProp(element, (const xmlChar*) "x");
     xmlChar* yAttr = xmlGetProp(element, (const xmlChar*) "y");
     xmlChar* widthAttr  = xmlGetProp(element, (const xmlChar*) "width");
     xmlChar* heightAttr = xmlGetProp(element, (const xmlChar*) "height");
 
-    if (xAttr == nullptr || yAttr == nullptr || widthAttr == nullptr || heightAttr == nullptr) {
-        std::cerr << "Error: Missing attributes in rect element." << std::endl;
-        throw std::runtime_error("Missing attributes in rect element.");
-    }
+    //if (xAttr == nullptr || yAttr == nullptr || widthAttr == nullptr || heightAttr == nullptr) {
+    //    std::cerr << "Error: Missing attributes in rect element." << std::endl;
+    //    throw std::runtime_error("Missing attributes in rect element.");
+    //}
 
     double x = std::stod(reinterpret_cast<char *>(xAttr));
     double y = std::stod(reinterpret_cast<char *>(yAttr));
     double width = std::stod(reinterpret_cast<char *>(widthAttr));
     double height = std::stod(reinterpret_cast<char *>(heightAttr));
 
-    // 矩形の中心を計算
+    //// 矩形の中心を計算
     Geom::Point center = Geom::Point(x + width / 2.0, y + height / 2.0);
 
     // アフィン変換を中心に適用
-    Geom::Point transformedCenter = center * transform;
-
     // メモリの解放
     xmlFree(xAttr);
     xmlFree(yAttr);
     xmlFree(widthAttr);
     xmlFree(heightAttr);
 
-    return transformedCenter;
+    return center;
 }
 
-Geom::Point get_center_of_circle(xmlNodePtr element, Geom::Affine transform){
+Geom::Point get_center_of_circle(xmlNodePtr element){
     xmlChar* cxAttr = xmlGetProp(element,(const xmlChar*) "cx");
     xmlChar* cyAttr = xmlGetProp(element,(const xmlChar*) "cy");
     double cx = std::stod(reinterpret_cast<char *>(cxAttr));
@@ -119,19 +117,52 @@ Geom::Point get_center_of_circle(xmlNodePtr element, Geom::Affine transform){
 
     Geom::Circle circle(cx, cy, 0);
       // 中心にアフィン変換を適用
-    Geom::Point transformedCenter = circle.center() * transform;
+    //Geom::Point transformedCenter = circle.center() * transform;
 
-    // x方向とy方向のスケール要素を取得
-    double scaleX = transform[0]; // x方向のスケーリング要素
-    double scaleY = transform[3]; // y方向のスケーリング要素
+    //// x方向とy方向のスケール要素を取得
+    //double scaleX = transform[0]; // x方向のスケーリング要素
+    //double scaleY = transform[3]; // y方向のスケーリング要素
 
-    // 半径に対してスケーリング要素を適用（ここでは平均値を使用）
-    double transformedRadius = circle.radius() * (scaleX + scaleY) / 2.0;
+    //// 半径に対してスケーリング要素を適用（ここでは平均値を使用）
+    //double transformedRadius = circle.radius() * (scaleX + scaleY) / 2.0;
 
     // 変換後の円を返す
-    return Geom::Circle(transformedCenter, transformedRadius).center();
+    //return Geom::Circle(transformedCenter, transformedRadius).center();
+    return circle.center();
 }
 
+#include <stack>
+
+// 親から順にtransformを適用する
+Geom::Affine collect_and_apply_transform(xmlNodePtr element) {
+    std::stack<Geom::Affine> transformStack;  // 親の変換を保存するスタック
+    Geom::Affine totalTransform = Geom::identity();  // 初期化
+
+    // 親から順に探索
+    xmlNodePtr current = element;
+    while (current != nullptr) {
+        if (current->name != nullptr) {
+            if (xmlStrcmp(current->name, (const xmlChar*)"g") == 0) {
+                xmlChar* transformAttr = xmlGetProp(current, (const xmlChar*)"transform");
+                if (transformAttr != nullptr) {
+                    // 変換行列をパースしてスタックにプッシュ
+                    Geom::Affine transform = parseTransform((char*) transformAttr);
+                    transformStack.push(transform);  // 親から順にスタックに保存
+                    xmlFree(transformAttr);
+                }
+            }
+        }
+        current = current->parent;
+    }
+
+    // スタックから取り出して順に適用（親→子の順に適用される）
+    while (!transformStack.empty()) {
+        totalTransform *= transformStack.top();  // 親から順に適用
+        transformStack.pop();
+    }
+
+    return totalTransform;
+}
 
 
 Geom::Point get_center_of_element_after_transform(xmlNodePtr root, std::string object_id){
@@ -144,23 +175,12 @@ Geom::Point get_center_of_element_after_transform(xmlNodePtr root, std::string o
 
     // iterate to root 
     xmlNodePtr current = element;
-    Geom::Affine transform;
-    while(current != nullptr){
-        if (current->name != nullptr) {
-            if(xmlStrcmp(current->name, (const xmlChar*)"g")==0){
-                xmlChar* transformAttr=xmlGetProp(current, (const xmlChar*)"transform");
-                if(transformAttr != nullptr){
-                    transform *= parseTransform((char*) transformAttr);
-                }
-                xmlFree(transformAttr);
-            }
-        }
-        current = current->parent;
-    }
+    //Geom::Affine transform;
+    //transform = collect_and_apply_transform(element);
     if(xmlStrcmp(element->name, (const xmlChar*)"rect")==0){
-        return get_center_of_rect(element, transform);
+        return get_center_of_rect(element);
     }else if(xmlStrcmp(element->name, (const xmlChar*)"circle")==0){
-        return get_center_of_circle(element, transform); 
+        return get_center_of_circle(element); 
     }
     throw std::runtime_error("The center element is not supported.");
 }

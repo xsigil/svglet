@@ -1,0 +1,16 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-I/usr/include/2geom-1.3.0",
+      "-I/usr/include/libxml2",
+      "-c",
+      "-o",
+      "src/main.o",
+      "src/main.cpp"
+    ],
+    "directory": "/home/ra/Workspace/Youtube-Projects/svglet",
+    "file": "/home/ra/Workspace/Youtube-Projects/svglet/src/main.cpp",
+    "output": "/home/ra/Workspace/Youtube-Projects/svglet/src/main.o"
+  }
+]

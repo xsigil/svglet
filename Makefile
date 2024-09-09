@@ -1,7 +1,7 @@
 # コンパイラの設定
 CXX = g++
-CXXFLAGS = $(shell pkg-config --cflags 2geom) $(shell xml2-config --cflags) -Isrc/include
-LDFLAGS = $(shell pkg-config --libs 2geom) $(shell xml2-config --libs)
+CXXFLAGS = $(shell pkg-config --cflags 2geom) $(shell pkg-config --cflags libcroco-0.6) $(shell xml2-config --cflags) -Isrc/include
+LDFLAGS = $(shell pkg-config --libs 2geom) $(shell pkg-config --libs libcroco-0.6) $(shell xml2-config --libs)
 
 # ターゲットとソース
 TARGET = bin/svglet

@@ -6,7 +6,8 @@
 #include <svglet/svglet.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
-// 指定されたIDの要素を再帰的に検索する関数
+#include <stack>
+
 xmlNodePtr find_element_by_id(xmlNodePtr node, const std::string& id) {
     for (xmlNodePtr cur = node; cur != nullptr; cur = cur->next) {
         if (cur->type == XML_ELEMENT_NODE) {
@@ -23,35 +24,28 @@ xmlNodePtr find_element_by_id(xmlNodePtr node, const std::string& id) {
     return nullptr;
 }
 
-// 変換行列をパースする関数
 Geom::Affine parseTransform(const std::string &transformStr) {
     Geom::Affine transform = Geom::identity();  // 初期化：単位行列
-    
-    // 各変換操作に対応する正規表現
     std::regex translateRegex("translate\\(([\\d\\.\\-e]+)[,\\s]*([\\d\\.\\-e]*)?\\)");
     std::regex rotateRegex("rotate\\(([\\d\\.\\-e]+)[,\\s]*([\\d\\.\\-e]*)[,\\s]*([\\d\\.\\-e]*)?\\)");
     std::regex scaleRegex("scale\\(([\\d\\.\\-e]+)[,\\s]*([\\d\\.\\-e]*)?\\)");
     std::regex matrixRegex("matrix\\(([\\d\\.\\-e]+)[,\\s]+([\\d\\.\\-e]+)[,\\s]+([\\d\\.\\-e]+)[,\\s]+([\\d\\.\\-e]+)[,\\s]+([\\d\\.\\-e]+)[,\\s]+([\\d\\.\\-e]+)\\)");
 
-    // transform属性全体を処理するための正規表現
     std::regex transformRegex("(translate|rotate|scale|matrix)\\([^\\)]*\\)");
 
     std::smatch match;
     std::string::const_iterator searchStart(transformStr.cbegin());
 
-    // 全体のtransform属性を順次パースして適用
     for(std::sregex_iterator it(std::begin(transformStr), std::end(transformStr), transformRegex), end; it != end; ++it){
         auto && m = *it;
         std::string transformCommand = m[0];
 
-        // translateのパース
         if (std::regex_search(transformCommand, match, translateRegex)) {
             double tx = std::stod(match[1].str());
             double ty = match[2].str().empty() ? 0 : std::stod(match[2].str());
             transform *= Geom::Translate(tx, ty);
         }
 
-        // rotateのパース
         else if (std::regex_search(transformCommand, match, rotateRegex)) {
             double angle = Geom::rad_from_deg(std::stod(match[1].str())) ;  // 度をラジアンに変換
             double cx = match[2].str().empty() ? 0 : std::stod(match[2].str());
@@ -59,14 +53,12 @@ Geom::Affine parseTransform(const std::string &transformStr) {
             transform *= Geom::Translate(cx, cy) * Geom::Rotate(angle) * Geom::Translate(-cx, -cy);
         }
 
-        // scaleのパース
         else if (std::regex_search(transformCommand, match, scaleRegex)) {
             double sx = std::stod(match[1].str());
             double sy = match[2].str().empty() ? sx : std::stod(match[2].str());
             transform *= Geom::Scale(sx, sy);
         }
 
-        // matrixのパース
         else if (std::regex_search(transformCommand, match, matrixRegex)) {
             double a = std::stod(match[1].str());
             double b = std::stod(match[2].str());
@@ -86,21 +78,18 @@ Geom::Point get_center_of_rect(xmlNodePtr element){
     xmlChar* widthAttr  = xmlGetProp(element, (const xmlChar*) "width");
     xmlChar* heightAttr = xmlGetProp(element, (const xmlChar*) "height");
 
-    //if (xAttr == nullptr || yAttr == nullptr || widthAttr == nullptr || heightAttr == nullptr) {
-    //    std::cerr << "Error: Missing attributes in rect element." << std::endl;
-    //    throw std::runtime_error("Missing attributes in rect element.");
-    //}
+    if (xAttr == nullptr || yAttr == nullptr || widthAttr == nullptr || heightAttr == nullptr) {
+        std::cerr << "Error: Missing attributes in rect element." << std::endl;
+        throw std::runtime_error("Missing attributes in rect element.");
+    }
 
     double x = std::stod(reinterpret_cast<char *>(xAttr));
     double y = std::stod(reinterpret_cast<char *>(yAttr));
     double width = std::stod(reinterpret_cast<char *>(widthAttr));
     double height = std::stod(reinterpret_cast<char *>(heightAttr));
 
-    //// 矩形の中心を計算
     Geom::Point center = Geom::Point(x + width / 2.0, y + height / 2.0);
 
-    // アフィン変換を中心に適用
-    // メモリの解放
     xmlFree(xAttr);
     xmlFree(yAttr);
     xmlFree(widthAttr);
@@ -116,36 +105,20 @@ Geom::Point get_center_of_circle(xmlNodePtr element){
     double cy = std::stod(reinterpret_cast<char *>(cyAttr));
 
     Geom::Circle circle(cx, cy, 0);
-      // 中心にアフィン変換を適用
-    //Geom::Point transformedCenter = circle.center() * transform;
-
-    //// x方向とy方向のスケール要素を取得
-    //double scaleX = transform[0]; // x方向のスケーリング要素
-    //double scaleY = transform[3]; // y方向のスケーリング要素
-
-    //// 半径に対してスケーリング要素を適用（ここでは平均値を使用）
-    //double transformedRadius = circle.radius() * (scaleX + scaleY) / 2.0;
-
-    // 変換後の円を返す
-    //return Geom::Circle(transformedCenter, transformedRadius).center();
     return circle.center();
 }
 
-#include <stack>
 
-// 親から順にtransformを適用する
 Geom::Affine collect_and_apply_transform(xmlNodePtr element) {
     std::stack<Geom::Affine> transformStack;  // 親の変換を保存するスタック
     Geom::Affine totalTransform = Geom::identity();  // 初期化
 
-    // 親から順に探索
     xmlNodePtr current = element;
     while (current != nullptr) {
         if (current->name != nullptr) {
             if (xmlStrcmp(current->name, (const xmlChar*)"g") == 0) {
                 xmlChar* transformAttr = xmlGetProp(current, (const xmlChar*)"transform");
                 if (transformAttr != nullptr) {
-                    // 変換行列をパースしてスタックにプッシュ
                     Geom::Affine transform = parseTransform((char*) transformAttr);
                     transformStack.push(transform);  // 親から順にスタックに保存
                     xmlFree(transformAttr);
@@ -155,9 +128,8 @@ Geom::Affine collect_and_apply_transform(xmlNodePtr element) {
         current = current->parent;
     }
 
-    // スタックから取り出して順に適用（親→子の順に適用される）
     while (!transformStack.empty()) {
-        totalTransform *= transformStack.top();  // 親から順に適用
+        totalTransform *= transformStack.top();  
         transformStack.pop();
     }
 
@@ -165,18 +137,13 @@ Geom::Affine collect_and_apply_transform(xmlNodePtr element) {
 }
 
 
-Geom::Point get_center_of_element_after_transform(xmlNodePtr root, std::string object_id){
+Geom::Point get_center_of_element(xmlNodePtr root, std::string object_id){
     xmlNodePtr element = find_element_by_id(root, object_id);
     if (element == nullptr) {
-        std::cerr << "ID '" << object_id << "' の要素が見つかりません。" << std::endl;
+        std::cerr << "ID '" << object_id << "' is not found" << std::endl;
         throw std::exception();
     }
-
-
-    // iterate to root 
     xmlNodePtr current = element;
-    //Geom::Affine transform;
-    //transform = collect_and_apply_transform(element);
     if(xmlStrcmp(element->name, (const xmlChar*)"rect")==0){
         return get_center_of_rect(element);
     }else if(xmlStrcmp(element->name, (const xmlChar*)"circle")==0){
@@ -186,35 +153,37 @@ Geom::Point get_center_of_element_after_transform(xmlNodePtr root, std::string o
 }
 
 xmlNodePtr rotate_svg_object(xmlNodePtr root, const std::string& object_id, std::string& center_object_id, double angle){
-    // 指定されたIDの要素を検索
     xmlNodePtr element = find_element_by_id(root, object_id);
-    if (element == nullptr) {
-        std::cerr << "ID '" << object_id << "' の要素が見つかりません。" << std::endl;
-        return nullptr;
-    }
-
-    Geom::Point center = get_center_of_element_after_transform(root, center_object_id);
-
     xmlChar* transform = xmlGetProp(element, (const xmlChar *)"transform");
     std::string new_transform;
     if (transform != nullptr) {
-        new_transform = (const char *)transform;  // nullptrチェック
+        new_transform = (const char *)transform;  
         xmlFree(transform);
     } else {
-        new_transform = "";  // transform属性がない場合は空の文字列を使う
+        new_transform = "";  
     }
 
-    // translate(x, y)を追加
-    new_transform += " rotate(" + std::to_string(angle) + " " + std::to_string(center.x()) + " " + std::to_string(center.y()) + ")";
-    xmlSetProp(element, (const xmlChar *)"transform", (const xmlChar *)new_transform.c_str());
+    if(!center_object_id.empty()){
+        if (element == nullptr) {
+            std::cerr << "ID '" << object_id << "' is not found." << std::endl;
+            return nullptr;
+        }
 
+        Geom::Point center = get_center_of_element(root, center_object_id);
+
+        xmlChar* transform = xmlGetProp(element, (const xmlChar *)"transform");
+        new_transform += " rotate(" + std::to_string(angle) + " " + std::to_string(center.x()) + " " + std::to_string(center.y()) + ")";
+        xmlSetProp(element, (const xmlChar *)"transform", (const xmlChar *)new_transform.c_str());
+    }else{
+        new_transform += " rotate(" + std::to_string(angle) + ")";
+        xmlSetProp(element, (const xmlChar *)"transform", (const xmlChar *)new_transform.c_str());
+    }
     return root;
 }
 
 int main(int argc, char **argv) {
     CLI::App app{"svglet - A simple tool for applying SVG transformations"};
 
-    // translateサブコマンド: x, yのオプション
     std::string object_id;
     double translate_x, translate_y;
     auto translate = app.add_subcommand("translate", "Translate the object by x, y");

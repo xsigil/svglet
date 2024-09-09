@@ -12,9 +12,6 @@ xmlNodePtr rotate_svg_object(xmlNodePtr root, const std::string& object_id, cons
 
 xmlNodePtr find_element_by_id(xmlNodePtr node, const std::string& id) ;
 
-std::pair<double, double> get_rect_center_with_transform(xmlNode* node, const Geom::Affine& transform);
-
-std::pair<double, double> get_circle_center_with_transform(xmlNode* node, const Geom::Affine& transform);
 
 #endif // SVG_TRANSFORM_H
 

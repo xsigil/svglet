@@ -1,140 +1,81 @@
-以下は、`svglet` のREADMEファイルの英語版例です。
-
----
-
 # svglet
 
-`svglet` is a command-line tool that allows you to easily manipulate SVG images from the terminal. It provides several transformation commands to apply translations, rotations, scaling, and more to your SVG files.
+A lightweight CLI toolkit for SVG geometry computation and stream transformation.
+
+Powered by `lib2geom` (Inkscape's geometry engine) and `libxml2`, `svglet` is designed to be chained in UNIX pipes (`sed`/`jq` style) to manipulate SVG structures or calculate exact curve lengths without spinning up heavy headless browser environments.
 
 ## Features
 
-- **translate**: Move an object by a specified x and y offset.
-- **rotate**: Rotate an object by a given angle.
-- **scale**: Scale an object by specified x and y scaling factors.
-- **skewX**: Skew an object along the X-axis by a specified angle.
-- **skewY**: Skew an object along the Y-axis by a specified angle.
-- **matrix**: Apply a 2D transformation matrix to an object.
+- **Geometric Path Length Computation**: Computes exact arc lengths of Bezier curves and polyline paths.
+- **Stream Operations**: Reads from `stdin`, applies affine transformations (translate, rotate), and outputs to `stdout`.
+- **Targeted Operations**: Applies transformations around element centers (circles, rectangles) via ID selection.
 
-## Installation
+## Dependencies
 
-To install `svglet`, clone the repository and build the tool using a C++ compiler.
+- C++17 compiler
+- `lib2geom` (>= 1.3)
+- `libxml2`
+- `boost`
+- `cli11`
+- `cmake` (>= 3.16)
 
+### Arch Linux
 ```bash
-git clone https://github.com/yourusername/svglet.git
-cd svglet
-g++ -std=c++11 -o svglet svglet.cpp
+sudo pacman -S lib2geom libxml2 boost cli11 cmake
+
 ```
 
-This command will create an executable file named `svglet`.
+### Ubuntu / Debian
+
+```bash
+sudo apt install lib2geom-dev libxml2-dev libboost-dev libcli11-dev cmake
+
+```
+
+## Build
+
+```bash
+cmake -B build -S .
+cmake --build build
+sudo cmake --install build
+
+```
 
 ## Usage
 
-`svglet` offers several subcommands for manipulating SVG elements. Below are the available subcommands and their respective options:
+### 1. Compute Path Length
 
-### translate
-
-Move an object by the specified x and y offsets.
+Pass raw path strings directly:
 
 ```bash
-./svglet translate <x> <y>
+svglet length "M 0 0 L 100 100"
+# Output: 141.421
+
 ```
 
-Example:
+Or extract and compute the length of a specific `<path>` element from an SVG pipe:
 
 ```bash
-./svglet translate 10 20
-# Translates the object by 10 units in the X direction and 20 units in the Y direction.
+cat drawing.svg | svglet length --id main_wire
+
 ```
 
-### rotate
+### 2. Stream Transformations
 
-Rotate an object by a specified angle in degrees.
+Translate an element by (x, y):
 
 ```bash
-./svglet rotate <angle>
+cat input.svg | svglet translate target_id 10 -20 > output.svg
+
 ```
 
-Example:
+Rotate an element around another element's center:
 
 ```bash
-./svglet rotate 45
-# Rotates the object by 45 degrees.
-```
+cat input.svg | svglet rotate gear_1 45 --cid pivot_circle > output.svg
 
-### scale
-
-Scale an object by specified x and y scaling factors.
-
-```bash
-./svglet scale <sx> <sy>
-```
-
-Example:
-
-```bash
-./svglet scale 2 3
-# Scales the object by 2x in the X direction and 3x in the Y direction.
-```
-
-### skewX
-
-Skew an object along the X-axis by the specified angle.
-
-```bash
-./svglet skewX <angle>
-```
-
-Example:
-
-```bash
-./svglet skewX 30
-# Skews the object along the X-axis by 30 degrees.
-```
-
-### skewY
-
-Skew an object along the Y-axis by the specified angle.
-
-```bash
-./svglet skewY <angle>
-```
-
-Example:
-
-```bash
-./svglet skewY 20
-# Skews the object along the Y-axis by 20 degrees.
-```
-
-### matrix
-
-Apply a 2D transformation matrix to an object. You must provide six matrix values: a, b, c, d, e, and f.
-
-```bash
-./svglet matrix <a> <b> <c> <d> <e> <f>
-```
-
-Example:
-
-```bash
-./svglet matrix 1 0 0 1 10 20
-# Applies the transformation matrix [1 0 0 1 10 20] to the object.
-```
-
-## Example
-
-You can chain multiple transformations to manipulate an SVG element in different ways.
-
-```bash
-./svglet translate 10 20
-./svglet rotate 45
-./svglet scale 1.5 1.5
 ```
 
 ## License
 
-`svglet` is licensed under the MIT License. See the `LICENSE` file for more details.
-
----
-
-This README provides a clear overview of what `svglet` does, how to install and use it, and examples of each transformation. You can modify it further as per your project's needs.
+MIT
